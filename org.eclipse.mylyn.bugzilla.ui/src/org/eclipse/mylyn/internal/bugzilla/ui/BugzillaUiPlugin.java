@@ -14,17 +14,14 @@ package org.eclipse.mylyn.internal.bugzilla.ui;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.eclipse.core.runtime.jobs.IJobChangeEvent;
-import org.eclipse.core.runtime.jobs.JobChangeAdapter;
 import org.eclipse.jface.resource.ImageDescriptor;
+import org.eclipse.mylyn.internal.bugzilla.core.BugzillaAttribute;
 import org.eclipse.mylyn.internal.bugzilla.core.BugzillaClient;
 import org.eclipse.mylyn.internal.bugzilla.core.BugzillaClientManager;
 import org.eclipse.mylyn.internal.bugzilla.core.BugzillaCorePlugin;
 import org.eclipse.mylyn.internal.bugzilla.core.BugzillaRepositoryConnector;
 import org.eclipse.mylyn.internal.bugzilla.core.IBugzillaConstants;
 import org.eclipse.mylyn.internal.bugzilla.core.RepositoryConfiguration;
-import org.eclipse.mylyn.internal.tasks.ui.util.TasksUiInternal;
-import org.eclipse.mylyn.tasks.core.sync.TaskJob;
 import org.eclipse.mylyn.tasks.ui.TasksUi;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.BundleContext;
@@ -96,15 +93,6 @@ public class BugzillaUiPlugin extends AbstractUIPlugin {
 		BugzillaRepositoryConnector bugzillaConnector = (BugzillaRepositoryConnector) TasksUi.getRepositoryManager()
 				.getRepositoryConnector(BugzillaCorePlugin.CONNECTOR_KIND);
 		BugzillaClientManager clientManager = bugzillaConnector.getClientManager();
-		clientManager.setRepositoryConfigurationUpdateJobChangeAdapter(new JobChangeAdapter() {
-			@Override
-			public void done(IJobChangeEvent event) {
-				TaskJob taskJob = ((TaskJob) (event.getJob()));
-				if (taskJob.getStatus() != null) {
-					TasksUiInternal.asyncLogAndDisplayStatus(Messages.BugzillaUiPlugin_Configuration_Refresh_Failed, taskJob.getStatus());
-				}
-			}
-		});
 		TasksUi.getRepositoryManager().addListener(clientManager);
 
 		// NOTE: initializing extensions in start(..) has caused race
@@ -156,21 +144,24 @@ public class BugzillaUiPlugin extends AbstractUIPlugin {
 				&& selectedProducts != null) {
 			for (String product : selectedProducts) {
 				if (prefId.equals(IBugzillaConstants.VALUES_COMPONENT)) {
-					for (String option : repositoryConfiguration.getComponents(product)) {
+					for (String option : repositoryConfiguration.getProductOptionValues(BugzillaAttribute.COMPONENT,
+							product)) {
 						if (!options.contains(option)) {
 							options.add(option);
 						}
 					}
 				}
 				if (prefId.equals(IBugzillaConstants.VALUES_VERSION)) {
-					for (String option : repositoryConfiguration.getVersions(product)) {
+					for (String option : repositoryConfiguration.getProductOptionValues(BugzillaAttribute.VERSION,
+							product)) {
 						if (!options.contains(option)) {
 							options.add(option);
 						}
 					}
 				}
 				if (prefId.equals(IBugzillaConstants.VALUES_TARGET)) {
-					for (String option : repositoryConfiguration.getTargetMilestones(product)) {
+					for (String option : repositoryConfiguration.getProductOptionValues(
+							BugzillaAttribute.TARGET_MILESTONE, product)) {
 						if (!options.contains(option)) {
 							options.add(option);
 						}
@@ -179,13 +170,13 @@ public class BugzillaUiPlugin extends AbstractUIPlugin {
 			}
 		} else {
 			if (prefId.equals(IBugzillaConstants.VALUES_COMPONENT)) {
-				options = repositoryConfiguration.getComponents();
+				options = repositoryConfiguration.getOptionValues(BugzillaAttribute.COMPONENT);
 			}
 			if (prefId.equals(IBugzillaConstants.VALUES_VERSION)) {
-				options = repositoryConfiguration.getVersions();
+				options = repositoryConfiguration.getOptionValues(BugzillaAttribute.VERSION);
 			}
 			if (prefId.equals(IBugzillaConstants.VALUES_TARGET)) {
-				options = repositoryConfiguration.getTargetMilestones();
+				options = repositoryConfiguration.getOptionValues(BugzillaAttribute.TARGET_MILESTONE);
 			}
 		}
 		return options.toArray(new String[options.size()]);

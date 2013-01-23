@@ -25,6 +25,7 @@ import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.mylyn.bugzilla.tests.support.BugzillaFixture;
 import org.eclipse.mylyn.commons.net.AuthenticationCredentials;
 import org.eclipse.mylyn.commons.net.AuthenticationType;
+import org.eclipse.mylyn.commons.sdk.util.CommonTestUtil.PrivilegeLevel;
 import org.eclipse.mylyn.internal.bugzilla.core.BugzillaAttribute;
 import org.eclipse.mylyn.internal.bugzilla.core.BugzillaClient;
 import org.eclipse.mylyn.internal.bugzilla.core.BugzillaRepositoryConnector;
@@ -42,7 +43,6 @@ import org.eclipse.mylyn.tasks.core.data.TaskAttribute;
 import org.eclipse.mylyn.tasks.core.data.TaskAttributeMapper;
 import org.eclipse.mylyn.tasks.core.data.TaskData;
 import org.eclipse.mylyn.tasks.core.data.TaskDataCollector;
-import org.eclipse.mylyn.commons.sdk.util.CommonTestUtil.PrivilegeLevel;
 
 /**
  * @author Nathan Hapke
@@ -218,7 +218,7 @@ public class BugzillaRepositoryConnectorStandaloneTest extends TestCase {
 
 		// queries for bugs assigned to tests@mylyn.eclipse.org, updated in the last hour, trivial with P1
 		RepositoryConfiguration repositoryConfiguration = connector.getRepositoryConfiguration(repository.getRepositoryUrl());
-		List<String> priorities = repositoryConfiguration.getPriorities();
+		List<String> priorities = repositoryConfiguration.getOptionValues(BugzillaAttribute.PRIORITY);
 		String priority = priorities.get(0);
 		String severity = "trivial";
 		String email = "tests%40mylyn.eclipse.org";
@@ -384,15 +384,15 @@ public class BugzillaRepositoryConnectorStandaloneTest extends TestCase {
 		connector.removeConfiguration(config);
 		config = new RepositoryConfiguration();
 		config.setRepositoryUrl(repository.getRepositoryUrl());
-		config.addPriority("MostHighest");
-		config.addPriority("Highest");
-		config.addPriority("Higher");
-		config.addPriority("High");
-		config.addPriority("Normal");
-		config.addPriority("Low");
-		config.addPriority("Lower");
-		config.addPriority("Lowest");
-		config.addPriority("MostLowest");
+		config.addItem(BugzillaAttribute.PRIORITY, "MostHighest");
+		config.addItem(BugzillaAttribute.PRIORITY, "Highest");
+		config.addItem(BugzillaAttribute.PRIORITY, "Higher");
+		config.addItem(BugzillaAttribute.PRIORITY, "High");
+		config.addItem(BugzillaAttribute.PRIORITY, "Normal");
+		config.addItem(BugzillaAttribute.PRIORITY, "Low");
+		config.addItem(BugzillaAttribute.PRIORITY, "Lower");
+		config.addItem(BugzillaAttribute.PRIORITY, "Lowest");
+		config.addItem(BugzillaAttribute.PRIORITY, "MostLowest");
 		connector.addRepositoryConfiguration(config);
 
 		taskData.getRoot().createMappedAttribute(BugzillaAttribute.PRIORITY.getKey()).setValue("P1");
@@ -448,15 +448,15 @@ public class BugzillaRepositoryConnectorStandaloneTest extends TestCase {
 		connector.removeConfiguration(config);
 		config = new RepositoryConfiguration();
 		config.setRepositoryUrl(repository.getRepositoryUrl());
-		config.addPriority("MostHighest");
-		config.addPriority("Highest");
-		config.addPriority("Higher");
-		config.addPriority("High");
-		config.addPriority("Normal");
-		config.addPriority("Low");
-		config.addPriority("Lower");
-		config.addPriority("Lowest");
-		config.addPriority("MostLowest");
+		config.addItem(BugzillaAttribute.PRIORITY, "MostHighest");
+		config.addItem(BugzillaAttribute.PRIORITY, "Highest");
+		config.addItem(BugzillaAttribute.PRIORITY, "Higher");
+		config.addItem(BugzillaAttribute.PRIORITY, "High");
+		config.addItem(BugzillaAttribute.PRIORITY, "Normal");
+		config.addItem(BugzillaAttribute.PRIORITY, "Low");
+		config.addItem(BugzillaAttribute.PRIORITY, "Lower");
+		config.addItem(BugzillaAttribute.PRIORITY, "Lowest");
+		config.addItem(BugzillaAttribute.PRIORITY, "MostLowest");
 
 		taskData.getRoot().createMappedAttribute(BugzillaAttribute.PRIORITY.getKey()).setValue("P1");
 		assertEquals(PriorityLevel.P1, mapping.getPriorityLevel());

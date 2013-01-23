@@ -719,7 +719,7 @@ public class TasksUiPlugin extends AbstractUIPlugin {
 							repositoryManager.applyMigrators(taskRepository);
 						}
 					} catch (Throwable t) {
-						StatusHandler.log(new Status(IStatus.ERROR, TasksUiPlugin.ID_PLUGIN, NLS.bind(
+						StatusHandler.log(new Status(IStatus.WARNING, TasksUiPlugin.ID_PLUGIN, NLS.bind(
 								"Could not load repository template for repository {0}", template.repositoryUrl), t)); //$NON-NLS-1$
 					}
 				}
@@ -775,8 +775,12 @@ public class TasksUiPlugin extends AbstractUIPlugin {
 			}
 
 			if (PlatformUI.isWorkbenchRunning()) {
-				getPreferenceStore().removePropertyChangeListener(taskListNotificationManager);
-				getPreferenceStore().removePropertyChangeListener(taskListBackupManager);
+				if (taskListNotificationManager != null) {
+					getPreferenceStore().removePropertyChangeListener(taskListNotificationManager);
+				}
+				if (taskListBackupManager != null) {
+					getPreferenceStore().removePropertyChangeListener(taskListBackupManager);
+				}
 				getPreferenceStore().removePropertyChangeListener(PROPERTY_LISTENER);
 				//taskListManager.getTaskList().removeChangeListener(taskListSaveManager);
 				CommonColors.dispose();

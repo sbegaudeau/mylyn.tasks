@@ -80,7 +80,7 @@ public class BugzillaRepositoryConnector extends AbstractRepositoryConnector {
 
 	//private static final String DEADLINE_FORMAT = "yyyy-MM-dd"; //$NON-NLS-1$
 
-	private static final String TIMESTAMP_WITH_OFFSET = "yyyy-MM-dd HH:mm:ss Z"; //$NON-NLS-1$
+	//private static final String TIMESTAMP_WITH_OFFSET = "yyyy-MM-dd HH:mm:ss Z"; //$NON-NLS-1$
 
 	private static final long HOUR = 1000 * 60 * 60;
 
@@ -115,6 +115,7 @@ public class BugzillaRepositoryConnector extends AbstractRepositoryConnector {
 		enSetting.addLanguageAttribute("error_login", "Invalid Username Or Password"); //$NON-NLS-1$ //$NON-NLS-2$
 		enSetting.addLanguageAttribute("error_login", "account locked"); //$NON-NLS-1$//$NON-NLS-2$
 		enSetting.addLanguageAttribute("error_collision", "Mid-air collision!"); //$NON-NLS-1$ //$NON-NLS-2$
+		enSetting.addLanguageAttribute("error_collision", "Mid-air collision detected!"); //$NON-NLS-1$ //$NON-NLS-2$
 		enSetting.addLanguageAttribute("error_comment_required", "Comment Required"); //$NON-NLS-1$ //$NON-NLS-2$
 		enSetting.addLanguageAttribute("error_logged_out", "logged out"); //$NON-NLS-1$ //$NON-NLS-2$
 		enSetting.addLanguageAttribute("bad_login", "Login"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -358,10 +359,17 @@ public class BugzillaRepositoryConnector extends AbstractRepositoryConnector {
 				changedTasks.add(changedTask);
 			}
 		}
-		if (syncSession.getData() == null && collector.getQueryTimestamp() != null) {
-			syncSession.setData(collector.getQueryTimestamp());
-		}
 
+		if (syncSession.getData() == null && collector.getQueryTimestamp() != null) {
+			// Bugzilla 4.2 does not parse the timezone of the time stamp properly hence it needs to be persisted in 
+			// server time and not local time
+			syncSession.setData(collector.getQueryTimestamp());
+//			Date queryDate = BugzillaAttributeMapper.parseDate(collector.getQueryTimestamp());
+//			if (queryDate != null) {
+//				// Ensure time is in right format
+//				syncSession.setData(new SimpleDateFormat(TIMESTAMP_WITH_OFFSET).format(queryDate));
+//			}
+		}
 	}
 
 	@Override
@@ -390,19 +398,6 @@ public class BugzillaRepositoryConnector extends AbstractRepositoryConnector {
 				client.logout(monitor);
 				client.getSearchHits(query, resultCollector, mapper, monitor);
 			}
-
-			if (resultCollector instanceof BugzillaTaskDataCollector) {
-				BugzillaTaskDataCollector bCollector = (BugzillaTaskDataCollector) resultCollector;
-				if (bCollector.getQueryTimestamp() != null) {
-					Date queryDate = ((BugzillaAttributeMapper) mapper).getDate(BugzillaAttribute.DELTA_TS.getKey(),
-							bCollector.getQueryTimestamp());
-					if (queryDate != null) {
-						// Ensure time is in right format
-						event.setData(new SimpleDateFormat(TIMESTAMP_WITH_OFFSET).format(queryDate));
-					}
-				}
-			}
-
 			return Status.OK_STATUS;
 		} catch (UnrecognizedReponseException e) {
 			return new Status(IStatus.ERROR, BugzillaCorePlugin.ID_PLUGIN, IStatus.INFO,
@@ -514,6 +509,7 @@ public class BugzillaRepositoryConnector extends AbstractRepositoryConnector {
 
 	@Override
 	public void postSynchronization(ISynchronizationSession event, IProgressMonitor monitor) throws CoreException {
+		monitor = Policy.monitorFor(monitor);
 		try {
 			monitor.beginTask("", 1); //$NON-NLS-1$
 			if (event.isFullSynchronization() && event.getStatus() == null) {
@@ -562,7 +558,7 @@ public class BugzillaRepositoryConnector extends AbstractRepositoryConnector {
 				}
 
 				BugzillaAttributeMapper mapper = (BugzillaAttributeMapper) taskData.getAttributeMapper();
-				Date oldModDate = mapper.getDate(BugzillaAttribute.DELTA_TS.getKey(), lastKnownMod);
+				Date oldModDate = BugzillaAttributeMapper.parseDate(lastKnownMod);
 				Date newModDate = mapper.getDateValue(attrModification);
 
 				// If either of the dates can't be parsed, fall back to string comparison
@@ -674,7 +670,7 @@ public class BugzillaRepositoryConnector extends AbstractRepositoryConnector {
 					// Did not know how the configuration can be null here
 					return getTaskPriority(priority);
 				}
-				List<String> priorities = repositoryConfiguration.getPriorities();
+				List<String> priorities = repositoryConfiguration.getOptionValues(BugzillaAttribute.PRIORITY);
 				return BugzillaRepositoryConnector.getTaskPriority(priority, priorities);
 			}
 		};

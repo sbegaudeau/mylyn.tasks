@@ -32,6 +32,7 @@ import org.eclipse.mylyn.internal.bugzilla.core.BugzillaClient;
 import org.eclipse.mylyn.internal.bugzilla.core.BugzillaCorePlugin;
 import org.eclipse.mylyn.internal.bugzilla.core.BugzillaOperation;
 import org.eclipse.mylyn.internal.bugzilla.core.BugzillaStatus;
+import org.eclipse.mylyn.internal.bugzilla.core.BugzillaTaskDataCollector;
 import org.eclipse.mylyn.internal.bugzilla.core.BugzillaTaskDataHandler;
 import org.eclipse.mylyn.internal.bugzilla.core.BugzillaUserMatchResponse;
 import org.eclipse.mylyn.internal.bugzilla.core.BugzillaVersion;
@@ -44,6 +45,7 @@ import org.eclipse.mylyn.internal.tasks.core.sync.SynchronizationSession;
 import org.eclipse.mylyn.internal.tasks.ui.TasksUiPlugin;
 import org.eclipse.mylyn.internal.tasks.ui.util.AttachmentUtil;
 import org.eclipse.mylyn.internal.tasks.ui.util.TasksUiInternal;
+import org.eclipse.mylyn.tasks.core.IRepositoryQuery;
 import org.eclipse.mylyn.tasks.core.ITask;
 import org.eclipse.mylyn.tasks.core.ITask.SynchronizationState;
 import org.eclipse.mylyn.tasks.core.RepositoryResponse;
@@ -796,27 +798,36 @@ public class BugzillaRepositoryConnectorTest extends AbstractBugzillaTest {
 	public void testMidAirCollision() throws Exception {
 		TaskData data = BugzillaFixture.current().createTask(PrivilegeLevel.USER, null, null);
 		assertNotNull(data);
-//		// Get the task
-//		ITask task = generateLocalTaskAndDownload(data.getTaskId());
-//
-//		ITaskDataWorkingCopy workingCopy = TasksUiPlugin.getTaskDataManager().getWorkingCopy(task);
-//		TaskData taskData = workingCopy.getLocalData();
-//		assertNotNull(taskData);
+		// Get the task
+		ITask task = generateLocalTaskAndDownload(data.getTaskId());
+
+		ITaskDataWorkingCopy workingCopy = TasksUiPlugin.getTaskDataManager().getWorkingCopy(task);
+		TaskData taskData = workingCopy.getLocalData();
+		assertNotNull(taskData);
 
 		String newCommentText = "BugzillaRepositoryClientTest.testMidAirCollision(): test " + (new Date()).toString();
 		TaskAttribute attrNewComment = data.getRoot().getMappedAttribute(TaskAttribute.COMMENT_NEW);
 		attrNewComment.setValue(newCommentText);
 		Set<TaskAttribute> changed = new HashSet<TaskAttribute>();
 		changed.add(attrNewComment);
+		RepositoryResponse response = BugzillaFixture.current().submitTask(data, client);
+
+		workingCopy = TasksUiPlugin.getTaskDataManager().getWorkingCopy(task);
+		taskData = workingCopy.getLocalData();
+		assertNotNull(taskData);
+
+		newCommentText = "BugzillaRepositoryClientTest.testMidAirCollision(): test #### " + (new Date()).toString();
+		attrNewComment = data.getRoot().getMappedAttribute(TaskAttribute.COMMENT_NEW);
+		attrNewComment.setValue(newCommentText);
+		changed = new HashSet<TaskAttribute>();
+		changed.add(attrNewComment);
 		TaskAttribute attrDeltaTs = data.getRoot().getMappedAttribute(TaskAttribute.DATE_MODIFICATION);
 		attrDeltaTs.setValue("2007-01-01 00:00:00");
 		changed.add(attrDeltaTs);
 
-		//workingCopy.save(changed, new NullProgressMonitor());
-
 		try {
 			// Submit changes
-			RepositoryResponse response = BugzillaFixture.current().submitTask(data, client);
+			response = BugzillaFixture.current().submitTask(data, client);
 			assertNotNull(response);
 			//assertEquals(ResponseKind.TASK_UPDATED, response.getReposonseKind());
 			System.err.println("\n\ntestMidAirCollision >>> ResponseKind:" + response.getReposonseKind().toString()
@@ -940,6 +951,51 @@ public class BugzillaRepositoryConnectorTest extends AbstractBugzillaTest {
 		}
 	}
 
+	public void testMissingHitsWhileTaskChanged() throws Exception {
+		String summary1 = "testMissingHitsWhileTaskChanged" + System.currentTimeMillis();
+		TaskData data1 = BugzillaFixture.current().createTask(PrivilegeLevel.USER, summary1, null);
+		ITask task1 = generateLocalTaskAndDownload(data1.getTaskId());
+		// ensure that time advances by 1 second between creation and query time
+		Thread.sleep(1000);
+
+		repository = BugzillaFixture.current().repository();
+		String stamp = data1.getRoot().getMappedAttribute(TaskAttribute.DATE_MODIFICATION).getValue();
+		repository.setSynchronizationTimeStamp(stamp);
+		SynchronizationSession session = new SynchronizationSession();
+		session.setFullSynchronization(true);
+		session.setTasks(Collections.singleton(task1));
+		session.setTaskRepository(repository);
+
+		// pre synchronization
+		connector.preSynchronization(session, null);
+		Object data = session.getData();
+		assertNotNull(session.getData());
+		assertEquals(Collections.singleton(task1), session.getStaleTasks());
+
+		// update task
+		data1.getRoot().getMappedAttribute(TaskAttribute.SUMMARY).setValue(summary1 + "updated");
+		connector.getTaskDataHandler().postTaskData(repository, data1, null, null);
+
+		// perform query
+		IRepositoryQuery query = TasksUi.getRepositoryModel().createRepositoryQuery(repository);
+		query.setUrl(repository.getUrl()
+				+ "buglist.cgi?query_format=advanced&short_desc_type=allwordssubstr&short_desc=" + summary1);
+		BugzillaTaskDataCollector collector = new BugzillaTaskDataCollector();
+		connector.performQuery(repository, query, collector, session, null);
+		assertEquals(data, session.getData());
+
+		// post synchronizaion
+		connector.postSynchronization(session, null);
+		assertFalse(stamp.equals(repository.getSynchronizationTimeStamp()));
+
+		// second pre synchronization
+		SynchronizationSession session2 = new SynchronizationSession();
+		session2.setTasks(Collections.singleton(task1));
+		session2.setTaskRepository(repository);
+		connector.preSynchronization(session2, null);
+		assertEquals(Collections.singleton(task1), session2.getStaleTasks());
+	}
+
 	public void testAnonymousRepositoryAccess() throws Exception {
 		assertNotNull(repository);
 		AuthenticationCredentials anonymousCreds = new AuthenticationCredentials("", "");
@@ -954,7 +1010,7 @@ public class BugzillaRepositoryConnectorTest extends AbstractBugzillaTest {
 		// test anonymous update of configuration
 		RepositoryConfiguration config = connector.getRepositoryConfiguration(repository, false, null);
 		assertNotNull(config);
-		assertTrue(config.getComponents().size() > 0);
+		assertTrue(config.getOptionValues(BugzillaAttribute.COMPONENT).size() > 0);
 	}
 
 	public void testTimeTracker() throws Exception {
@@ -1068,7 +1124,7 @@ public class BugzillaRepositoryConnectorTest extends AbstractBugzillaTest {
 			return;
 		}
 		RepositoryConfiguration repositoryConfiguration = connector.getRepositoryConfiguration(repository.getRepositoryUrl());
-		List<String> priorities = repositoryConfiguration.getPriorities();
+		List<String> priorities = repositoryConfiguration.getOptionValues(BugzillaAttribute.PRIORITY);
 		String priority1 = priorities.get(0);
 		String priority2 = priorities.get(1);
 

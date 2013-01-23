@@ -773,11 +773,11 @@ public class BugzillaClient {
 										repositoryConfiguration.setValidTransitions(monitor,
 												configParameters.get(IBugzillaConstants.BUGZILLA_DESCRIPTOR_FILE), null);
 									}
-									if (!repositoryConfiguration.getProducts().isEmpty()) {
+									if (!repositoryConfiguration.getOptionValues(BugzillaAttribute.PRODUCT).isEmpty()) {
 										repositoryConfiguration.setRepositoryUrl(repositoryUrl.toString());
 									}
 
-									if (!repositoryConfiguration.getProducts().isEmpty()) {
+									if (!repositoryConfiguration.getOptionValues(BugzillaAttribute.PRODUCT).isEmpty()) {
 										return repositoryConfiguration;
 									} else {
 										if (attempt == 0) {
@@ -815,10 +815,9 @@ public class BugzillaClient {
 	public void getAttachmentData(String attachmentId, OutputStream out, IProgressMonitor monitor) throws IOException,
 			CoreException {
 		String url = repositoryUrl + IBugzillaConstants.URL_GET_ATTACHMENT_DOWNLOAD + attachmentId;
-		GetMethod method = connectInternal(url, false, monitor, null);//getConnectGzip(url, monitor);
+		GetMethod method = getConnect(url, monitor);//getConnectGzip(url, monitor);
 		try {
-			int status = WebUtil.execute(httpClient, hostConfiguration, method, monitor);
-			if (status == HttpStatus.SC_OK) {
+			if (method.getStatusCode() == HttpStatus.SC_OK) {
 				//copy the response
 				InputStream instream = method.getResponseBodyAsStream();
 				if (instream != null) {
@@ -831,8 +830,6 @@ public class BugzillaClient {
 			} else {
 				parseHtmlError(method.getResponseBodyAsStream());
 			}
-		} catch (IOException e) {
-			throw e;
 		} finally {
 			WebUtil.releaseConnection(method, monitor);
 		}
@@ -1379,9 +1376,9 @@ public class BugzillaClient {
 				String id = a.getId();
 				if (id.equals(BugzillaAttribute.BUG_STATUS.getKey())
 						&& bugzillaVersion.compareMajorMinorOnly(BugzillaVersion.BUGZILLA_4_0) >= 0) {
-					if (repositoryConfiguration.getStatusValues().contains(
+					if (repositoryConfiguration.getOptionValues(BugzillaAttribute.BUG_STATUS).contains(
 							BUGZILLA_REPORT_STATUS_4_0.IN_PROGRESS.toString())
-							|| repositoryConfiguration.getStatusValues().contains(
+							|| repositoryConfiguration.getOptionValues(BugzillaAttribute.BUG_STATUS).contains(
 									BUGZILLA_REPORT_STATUS_4_0.CONFIRMED.toString())) {
 						TaskAttribute attributeOperation = taskData.getRoot().getMappedAttribute(
 								TaskAttribute.OPERATION);

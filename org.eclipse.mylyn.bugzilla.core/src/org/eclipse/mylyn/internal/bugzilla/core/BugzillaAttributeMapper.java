@@ -30,21 +30,21 @@ import org.eclipse.mylyn.tasks.core.data.TaskAttributeMapper;
  */
 public class BugzillaAttributeMapper extends TaskAttributeMapper {
 
-	private final String dateFormat_1 = "yyyy-MM-dd HH:mm:ss"; //$NON-NLS-1$
+	private static final String dateFormat_1 = "yyyy-MM-dd HH:mm:ss"; //$NON-NLS-1$
 
-	private final String dateFormat_2 = "yyyy-MM-dd HH:mm"; //$NON-NLS-1$
+	private static final String dateFormat_2 = "yyyy-MM-dd HH:mm"; //$NON-NLS-1$
 
-	private final String dateFormat_3 = "yyyy-MM-dd"; //$NON-NLS-1$
+	private static final String dateFormat_3 = "yyyy-MM-dd"; //$NON-NLS-1$
 
-	private final String dateFormat_1_TimeZone = "yyyy-MM-dd HH:mm:ss Z"; //$NON-NLS-1$
+	private static final String dateFormat_1_TimeZone = "yyyy-MM-dd HH:mm:ss Z"; //$NON-NLS-1$
 
-	private final String dateFormat_2_TimeZone = "yyyy-MM-dd HH:mm z"; //$NON-NLS-1$
+	private static final String dateFormat_2_TimeZone = "yyyy-MM-dd HH:mm z"; //$NON-NLS-1$
 
-	private final String dateFormat_3_TimeZone = "yyyy-MM-dd z"; //$NON-NLS-1$
+	private static final String dateFormat_3_TimeZone = "yyyy-MM-dd z"; //$NON-NLS-1$
 
 	// Order is significant
-	private final String[] dateFormats = { dateFormat_1_TimeZone, dateFormat_1, dateFormat_2_TimeZone, dateFormat_2,
-			dateFormat_3_TimeZone, dateFormat_3 };
+	private static final String[] dateFormats = { dateFormat_1_TimeZone, dateFormat_1, dateFormat_2_TimeZone,
+			dateFormat_2, dateFormat_3_TimeZone, dateFormat_3 };
 
 	private final BugzillaRepositoryConnector connector;
 
@@ -58,13 +58,11 @@ public class BugzillaAttributeMapper extends TaskAttributeMapper {
 		if (attribute == null) {
 			return null;
 		}
-		String dateString = attribute.getValue();
-		String id = attribute.getId();
-		Date parsedDate = getDate(id, dateString);
-		if (parsedDate == null) {
-			parsedDate = super.getDateValue(attribute);
+		Date parsedDate = parseDate(attribute.getValue());
+		if (parsedDate != null) {
+			return parsedDate;
 		}
-		return parsedDate;
+		return super.getDateValue(attribute);
 	}
 
 	@Override
@@ -90,20 +88,16 @@ public class BugzillaAttributeMapper extends TaskAttributeMapper {
 	/**
 	 * Note: Date formatter constructed within method for thread safety
 	 */
-	protected Date getDate(String attributeId, String dateString) {
-		Date parsedDate = null;
-
+	public static final Date parseDate(String dateString) {
 		for (String format : dateFormats) {
 			try {
 				SimpleDateFormat simpleFormatter = new SimpleDateFormat(format);
-				parsedDate = simpleFormatter.parse(dateString);
-				break;
+				return simpleFormatter.parse(dateString);
 			} catch (ParseException e) {
 			} catch (NumberFormatException e) {
 			}
 		}
-
-		return parsedDate;
+		return null;
 	}
 
 	@Override
@@ -286,7 +280,7 @@ public class BugzillaAttributeMapper extends TaskAttributeMapper {
 			if (attributeProduct != null && attributeProduct.getValue().length() > 0) {
 				List<String> options = configuration.getAttributeOptions(attributeProduct.getValue(), attribute);
 				if (options.size() == 0 && attribute.getId().equals("resolutionInput")) { //$NON-NLS-1$
-					options = configuration.getOptionValues(BugzillaAttribute.RESOLUTION, attributeProduct.getValue());
+					options = configuration.getOptionValues(BugzillaAttribute.RESOLUTION);
 					// DUPLICATE and MOVED have special meanings so do not show as resolution
 					// TODO: COPIED FUNCTIONALITY from RepositoryConfiguration.addOperation() refactor.
 					options.remove("DUPLICATE"); //$NON-NLS-1$
